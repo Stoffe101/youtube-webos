@@ -110,8 +110,8 @@ function filterHomeResponse(response) {
     // Remove shelves that consisted of videos but became empty after filtering.
     if (
       shelfHadVideos &&
-      !section.shelfRenderer.content.horizontalListRenderer.items.some((item) =>
-        Boolean(getVideoId(item))
+      !section.shelfRenderer.content.horizontalListRenderer.items.some(
+        (item) => Boolean(getVideoId(item))
       )
     ) {
       return false;
