@@ -1,6 +1,8 @@
+import { ResolveCommandRegistry } from './app_api/index';
 import { showNotification } from './ui.js';
 
 const YELLOW_KEY_CODES = new Set([170, 405]);
+const HOME_BROWSE_ID = 'FEwhat_to_watch';
 
 let refreshInProgress = false;
 
@@ -16,7 +18,7 @@ function isHomeRoute() {
   return hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/?');
 }
 
-function refreshHomeRecommendations() {
+async function refreshHomeRecommendations() {
   if (refreshInProgress) {
     return;
   }
@@ -27,13 +29,35 @@ function refreshHomeRecommendations() {
   }
 
   refreshInProgress = true;
-  showNotification('Refreshing recommendations...', 700, 'yellow');
 
-  // Reloading the Home route makes YouTube TV request a fresh recommendation
-  // feed without coupling this feature to YouTube's private internal APIs.
-  setTimeout(() => {
-    window.location.reload();
-  }, 150);
+  try {
+    const commandRegistry = await ResolveCommandRegistry.getInstance();
+
+    showNotification('Refreshing recommendations...', 900, 'yellow');
+
+    // Ask the running YouTube TV app to browse Home again. This keeps the
+    // application shell alive and refreshes Home through YouTube's own
+    // navigation/data path instead of reloading the entire web application.
+    commandRegistry.dispatchCommand({
+      commandMetadata: {
+        webCommandMetadata: {
+          url: '/',
+          webPageType: 'WEB_PAGE_TYPE_BROWSE'
+        }
+      },
+      browseEndpoint: {
+        browseId: HOME_BROWSE_ID
+      }
+    });
+  } catch (err) {
+    console.error('[home-refresh] Native Home refresh failed:', err);
+    showNotification('Could not refresh recommendations', 2000, 'yellow');
+  } finally {
+    // Keep rapid key repeats from stacking multiple Home browse requests.
+    setTimeout(() => {
+      refreshInProgress = false;
+    }, 1200);
+  }
 }
 
 function yellowButtonHandler(evt) {
