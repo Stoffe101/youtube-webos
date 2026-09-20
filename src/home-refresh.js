@@ -1,10 +1,20 @@
 import { ResolveCommandRegistry } from './app_api/index';
+import {
+  beginFreshHomeRefresh,
+  cancelFreshHomeRefresh,
+  finishFreshHomeRefresh,
+  HOME_RESPONSE_EVENT
+} from './home-freshness.js';
 import { showNotification } from './ui.js';
 
 const YELLOW_KEY_CODES = new Set([170, 405]);
 const HOME_BROWSE_ID = 'FEwhat_to_watch';
+const MIN_FRESH_VIDEOS = 10;
+const MAX_REFRESH_ATTEMPTS = 3;
 
 let refreshInProgress = false;
+let refreshAttempt = 0;
+let responseTimeout = null;
 
 function isYellowButton(evt) {
   return (
@@ -12,10 +22,54 @@ function isYellowButton(evt) {
   );
 }
 
-function isHomeRoute() {
-  const hash = window.location.hash;
+function isFullPlaybackActive() {
+  const player = document.querySelector('ytlr-watch-default');
+  return (
+    location.hash.includes('/watch') &&
+    player?.getAttribute('hybridnavfocusable') === 'true'
+  );
+}
 
-  return hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/?');
+async function dispatchHomeBrowse() {
+  const commandRegistry = await ResolveCommandRegistry.getInstance();
+
+  commandRegistry.dispatchCommand({
+    commandMetadata: {
+      webCommandMetadata: {
+        url: '/',
+        webPageType: 'WEB_PAGE_TYPE_BROWSE'
+      }
+    },
+    browseEndpoint: {
+      browseId: HOME_BROWSE_ID
+    }
+  });
+}
+
+function armResponseTimeout() {
+  clearTimeout(responseTimeout);
+  responseTimeout = setTimeout(() => {
+    console.warn('[home-refresh] Timed out waiting for Home response');
+    cancelFreshHomeRefresh();
+    refreshInProgress = false;
+    refreshAttempt = 0;
+  }, 4000);
+}
+
+async function requestFreshHome() {
+  refreshAttempt += 1;
+
+  try {
+    await dispatchHomeBrowse();
+    armResponseTimeout();
+  } catch (err) {
+    console.error('[home-refresh] Native Home refresh failed:', err);
+    clearTimeout(responseTimeout);
+    cancelFreshHomeRefresh();
+    refreshInProgress = false;
+    refreshAttempt = 0;
+    showNotification('Could not refresh recommendations', 2000, 'yellow');
+  }
 }
 
 async function refreshHomeRecommendations() {
@@ -23,42 +77,51 @@ async function refreshHomeRecommendations() {
     return;
   }
 
-  if (!isHomeRoute()) {
-    showNotification('Open Home to refresh recommendations', 2000, 'yellow');
+  // A Yellow press while actually watching a video should not throw the user
+  // out of playback. Everywhere else, including any focused Home tile, the
+  // button is allowed to refresh/navigate Home.
+  if (isFullPlaybackActive()) {
+    showNotification('Return to Home to refresh recommendations', 2000, 'yellow');
     return;
   }
 
   refreshInProgress = true;
+  refreshAttempt = 0;
+  beginFreshHomeRefresh();
 
-  try {
-    const commandRegistry = await ResolveCommandRegistry.getInstance();
-
-    showNotification('Refreshing recommendations...', 900, 'yellow');
-
-    // Ask the running YouTube TV app to browse Home again. This keeps the
-    // application shell alive and refreshes Home through YouTube's own
-    // navigation/data path instead of reloading the entire web application.
-    commandRegistry.dispatchCommand({
-      commandMetadata: {
-        webCommandMetadata: {
-          url: '/',
-          webPageType: 'WEB_PAGE_TYPE_BROWSE'
-        }
-      },
-      browseEndpoint: {
-        browseId: HOME_BROWSE_ID
-      }
-    });
-  } catch (err) {
-    console.error('[home-refresh] Native Home refresh failed:', err);
-    showNotification('Could not refresh recommendations', 2000, 'yellow');
-  } finally {
-    // Keep rapid key repeats from stacking multiple Home browse requests.
-    setTimeout(() => {
-      refreshInProgress = false;
-    }, 1200);
-  }
+  showNotification('Finding fresh recommendations...', 1000, 'yellow');
+  await requestFreshHome();
 }
+
+document.addEventListener(HOME_RESPONSE_EVENT, (evt) => {
+  if (!refreshInProgress) {
+    return;
+  }
+
+  clearTimeout(responseTimeout);
+
+  const freshCount = Number(evt.detail?.freshCount) || 0;
+
+  if (
+    freshCount < MIN_FRESH_VIDEOS &&
+    refreshAttempt < MAX_REFRESH_ATTEMPTS
+  ) {
+    console.info(
+      '[home-refresh] Only',
+      freshCount,
+      'fresh videos; requesting another Home batch'
+    );
+
+    setTimeout(() => {
+      requestFreshHome();
+    }, 250);
+    return;
+  }
+
+  finishFreshHomeRefresh();
+  refreshInProgress = false;
+  refreshAttempt = 0;
+});
 
 function yellowButtonHandler(evt) {
   if (!isYellowButton(evt)) {
