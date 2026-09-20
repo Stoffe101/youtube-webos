@@ -81,7 +81,11 @@ async function refreshHomeRecommendations() {
   // out of playback. Everywhere else, including any focused Home tile, the
   // button is allowed to refresh/navigate Home.
   if (isFullPlaybackActive()) {
-    showNotification('Return to Home to refresh recommendations', 2000, 'yellow');
+    showNotification(
+      'Return to Home to refresh recommendations',
+      2000,
+      'yellow'
+    );
     return;
   }
 
@@ -102,10 +106,7 @@ document.addEventListener(HOME_RESPONSE_EVENT, (evt) => {
 
   const freshCount = Number(evt.detail?.freshCount) || 0;
 
-  if (
-    freshCount < MIN_FRESH_VIDEOS &&
-    refreshAttempt < MAX_REFRESH_ATTEMPTS
-  ) {
+  if (freshCount < MIN_FRESH_VIDEOS && refreshAttempt < MAX_REFRESH_ATTEMPTS) {
     console.info(
       '[home-refresh] Only',
       freshCount,
