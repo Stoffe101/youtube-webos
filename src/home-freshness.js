@@ -30,14 +30,14 @@ function getVideoId(item) {
 
 function getWatchProgress(item) {
   const tileProgress =
-    item?.tileRenderer?.header?.tileHeaderRenderer?.thumbnailOverlays
-      ?.find((overlay) => overlay.thumbnailOverlayResumePlaybackRenderer)
-      ?.thumbnailOverlayResumePlaybackRenderer;
+    item?.tileRenderer?.header?.tileHeaderRenderer?.thumbnailOverlays?.find(
+      (overlay) => overlay.thumbnailOverlayResumePlaybackRenderer
+    )?.thumbnailOverlayResumePlaybackRenderer;
 
   const lockupProgress =
-    item?.lockupViewModel?.contentImage?.thumbnailViewModel?.overlays
-      ?.find((overlay) => overlay.thumbnailBottomOverlayViewModel?.progressBar)
-      ?.thumbnailBottomOverlayViewModel?.progressBar
+    item?.lockupViewModel?.contentImage?.thumbnailViewModel?.overlays?.find(
+      (overlay) => overlay.thumbnailBottomOverlayViewModel?.progressBar
+    )?.thumbnailBottomOverlayViewModel?.progressBar
       ?.thumbnailOverlayProgressBarViewModel;
 
   const progress = tileProgress || lockupProgress;
@@ -110,8 +110,8 @@ function filterHomeResponse(response) {
     // Remove shelves that consisted of videos but became empty after filtering.
     if (
       shelfHadVideos &&
-      !section.shelfRenderer.content.horizontalListRenderer.items.some(
-        (item) => Boolean(getVideoId(item))
+      !section.shelfRenderer.content.horizontalListRenderer.items.some((item) =>
+        Boolean(getVideoId(item))
       )
     ) {
       return false;
