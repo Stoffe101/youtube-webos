@@ -131,7 +131,6 @@ function yellowButtonHandler(evt) {
 
   evt.preventDefault();
   evt.stopPropagation();
-  evt.stopImmediatePropagation();
 
   if (evt.type === 'keydown' && !evt.repeat) {
     refreshHomeRecommendations();
@@ -140,9 +139,6 @@ function yellowButtonHandler(evt) {
   return false;
 }
 
-// Capture on window, above YouTube's document/shelf handlers. Deep horizontal
-// carousels can otherwise consume the color-key event before our document
-// listener sees it.
-window.addEventListener('keydown', yellowButtonHandler, true);
-window.addEventListener('keypress', yellowButtonHandler, true);
-window.addEventListener('keyup', yellowButtonHandler, true);
+document.addEventListener('keydown', yellowButtonHandler, true);
+document.addEventListener('keypress', yellowButtonHandler, true);
+document.addEventListener('keyup', yellowButtonHandler, true);
